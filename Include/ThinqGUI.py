@@ -28,7 +28,7 @@ class ThinqGUI(QMainWindow):
         self.setWindowTitle('ThinQ GUI')
 
     def initLayout(self):
-        central = QWidget()
+        central = QWidget(self)
         self.setCentralWidget(central)
 
         vbox = QVBoxLayout(central)
@@ -52,7 +52,7 @@ class ThinqGUI(QMainWindow):
         hbox.setSpacing(4)
         lbl = QLabel('Device List')
         hbox.addWidget(lbl)
-        hbox.addWidget(QWidget())
+        hbox.addWidget(QWidget(self))
         vbox.addWidget(subwgt)
         vbox.addWidget(self._tableDeviceList)
 
@@ -112,7 +112,7 @@ class ThinqGUI(QMainWindow):
         self.initTableDeviceList()
 
     def initTableDeviceList(self):
-        hHeaderLabels = ['Type', 'Id', 'Model', 'Alias']
+        hHeaderLabels = ['Type', 'Id', 'Model', 'Alias', 'Platform']
         self._tableDeviceList.setColumnCount(len(hHeaderLabels))
         self._tableDeviceList.setHorizontalHeaderLabels(hHeaderLabels)
         self._tableDeviceList.verticalHeader().hide()
@@ -121,6 +121,7 @@ class ThinqGUI(QMainWindow):
         hHeader.setSectionResizeMode(1, QHeaderView.Stretch)
         hHeader.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         hHeader.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        hHeader.setSectionResizeMode(4, QHeaderView.ResizeToContents)
         self._tableDeviceList.setSelectionMode(QAbstractItemView.SingleSelection)
         self._tableDeviceList.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._tableDeviceList.itemSelectionChanged.connect(self.onTableDeviceListItemSelectionChanged)
@@ -188,6 +189,12 @@ class ThinqGUI(QMainWindow):
             item.setTextAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
             item.setText(f'{alias}')
             self._tableDeviceList.setItem(r, 3, item)
+            platformType = elem.get('platformType')
+            item = QTableWidgetItem()
+            item.setFlags(Qt.ItemFlags(int(item.flags()) ^ Qt.ItemIsEditable))
+            item.setTextAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+            item.setText(f'{platformType}')
+            self._tableDeviceList.setItem(r, 4, item)
 
     def onTableDeviceListItemSelectionChanged(self):
         selected = self._tableDeviceList.selectedItems()

@@ -351,6 +351,12 @@ class ThinqAPI:
                     self.device_discover_list.extend(devices)
             self.discovered_device_id_list = [x.get('deviceId') for x in self.device_discover_list]
 
+            """
+            snapshot = [x.get('snapshot') for x in self.device_discover_list]
+            for e in snapshot:
+                print(e)
+            """
+
             self.log(f'discovered {len(self.device_discover_list)} device(s)')
             self.sig_dev_list.emit(self.device_discover_list)
             for device in self.device_discover_list:
@@ -358,8 +364,8 @@ class ThinqAPI:
                 dev_type = device.get('deviceType')
                 modelName = device.get('modelName')
                 alias = device.get('alias')
-                self.log(f'{alias}::{modelName}::{dev_type}::{dev_id}')
-
+                platformType = device.get('platformType')
+                self.log(f'{alias}::{modelName}::{dev_type}::{dev_id}::{platformType}')
             result = True
         else:
             self.log(f'failed to query home - device list ({response.status_code}, {response.text})')
@@ -548,3 +554,53 @@ class ThinqAPI:
     # def airPurifierSetRotationSpeed(self):
     # def airPurifierSetSwingMode(self):
     # def airPurifierSetLight(self):
+
+"""
+ThinQ1
+
+public thinq1DeviceControl(device: Device, key: string, value: any) {
+const data = Helper.prepareControlData(device, key, value);
+
+return this.api.thinq1PostRequest('rti/rtiControl', data).catch(err => {
+  this.log.error('Unknown Error: ', err);
+});
+}
+
+public static prepareControlData(device: Device, key: string, value: string) {
+    const data: any = {
+      cmd: 'Control',
+      cmdOpt: 'Set',
+      deviceId: device.id,
+      workId: uuid.v4(),
+    };
+
+    if (device.deviceModel.data.ControlWifi?.type === 'BINARY(BYTE)') {
+      const sampleData = device.deviceModel.data.ControlWifi?.action?.SetControl?.data || '[]';
+      const decodedMonitor = device.snapshot.raw || {};
+      decodedMonitor[key] = value;
+      // build data array of byte
+      const byteArray = new Uint8Array(JSON.parse(Object.keys(decodedMonitor).reduce((prev, key) => {
+        return prev.replace(new RegExp('{{'+key+'}}', 'g'), parseInt(decodedMonitor[key] || '0'));
+      }, sampleData)));
+      Object.assign(data, {
+        value: 'ControlData',
+        data: Buffer.from(String.fromCharCode(...byteArray)).toString('base64'),
+        format: 'B64',
+      });
+    } else {
+      data.value = {
+        [key]: value,
+      };
+      data.data = '';
+    }
+
+    return data;
+  }
+}
+
+async thinq1PostRequest(endpoint: string, data: any) {
+return await this.postRequest(this._gateway?.thinq1_url + endpoint, {
+  lgedmRoot: data,
+}).then(data => data.lgedmRoot);
+}
+"""
