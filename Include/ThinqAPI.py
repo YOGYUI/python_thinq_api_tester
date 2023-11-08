@@ -47,7 +47,7 @@ class ThinqAPI:
 
     def __init__(self, **kwargs):
         self.sig_log_message = Callback(str)
-        self.sig_dev_list = Callback(list)
+        self.sig_dev_info_list = Callback(list)
 
         self.subscribe_topics = list()
         self.device_discover_list = list()
@@ -358,7 +358,7 @@ class ThinqAPI:
             """
 
             self.log(f'discovered {len(self.device_discover_list)} device(s)')
-            self.sig_dev_list.emit(self.device_discover_list)
+            self.sig_dev_info_list.emit(self.device_discover_list)
             for device in self.device_discover_list:
                 dev_id = device.get('deviceId')
                 dev_type = device.get('deviceType')
@@ -432,6 +432,8 @@ class ThinqAPI:
                     fp.write(certificate_pem)
                 self.subscribe_topics.clear()
                 subscriptions = result.get('subscriptions')  # 구독할 Topic
+                for topic in subscriptions:
+                    self.log(f'subscription topic: {topic}')
                 self.subscribe_topics.extend(subscriptions)
                 elapsed = response.elapsed.microseconds
                 self.log('query certificate success ({:g} msec)'.format(elapsed / 1000))
@@ -522,9 +524,9 @@ class ThinqAPI:
     def onMqttClientMessage(self, _, __, message):
         msg_dict = json.loads(message.payload.decode("utf-8"))
         if self.log_mqtt_message:
-            self.log('{}'.format(msg_dict))
+            self.log('mqtt message: {}'.format(msg_dict))
 
-    # ThinQ Rest API: control device
+    # ThinQ v2 REST API: control device
     def sendCommandToDevice(
             self,
             device_id: str,
@@ -546,14 +548,23 @@ class ThinqAPI:
         else:
             pass
 
-    def airPurifierSetActive(self, device_id: str, active: bool):
-        self.sendCommandToDevice(device_id, 'airState.operation', int(active))
+    # ThinQ v1 REST API: control device
+    def sendCommandToDeviceV1(self, device_id: str):
+        url = self.uri_thinq1 + f'/rti/rtiControl'
+        data = {
+            'cmd': 'Control',
+            'cmpOpt': 'Set',
+            'deviceId': device_id,
+            'workId': '',
+            'value': '',
+            'data': ''
+        }
+        response = requests.post(url, json={'lgedmRoot': data})
+        if response.status_code == 200:
+            pass
+        else:
+            pass
 
-    # def airPurifierSetTargetState(self, device_id: str, ):
-
-    # def airPurifierSetRotationSpeed(self):
-    # def airPurifierSetSwingMode(self):
-    # def airPurifierSetLight(self):
 
 """
 ThinQ1
