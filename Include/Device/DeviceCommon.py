@@ -1,16 +1,19 @@
 import os
 import sys
 import json
+from typing import Any
 from Definition import DeviceType
 CURPATH = os.path.dirname(os.path.abspath(__file__))
 INCPATH = os.path.dirname(CURPATH)
 sys.path.extend([INCPATH])
 sys.path = list(set(sys.path))
 from Common import Callback
+from ThinqAPI import ThinqAPI
 
 
 class DeviceCommon:
-    def __init__(self, info: dict):
+    def __init__(self, info: dict, api: ThinqAPI):
+        self._api = api
         self.modelAppType: str = info.get('modelAppType', '')
         self.brandType: str = info.get('brandType', '')
         self.deviceId: str = info.get('deviceId', '')
@@ -84,4 +87,8 @@ class DeviceCommon:
         self.isTLV: str = info.get('isTLV', '')
         self.jsonList: str = info.get('jsonList', '')
 
-    # def sendCommand(self, ):
+    def sendCommand(self, key: str, value: Any):
+        if self.platformType == 'thinq2':
+            self._api.sendCommandToDevice(self.deviceId, key, value)
+        else:
+            self._api.sendCommandToDeviceV1(self.deviceId, key, value)

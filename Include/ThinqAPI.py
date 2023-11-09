@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import hmac
+import uuid
 import base64
 import random
 import hashlib
@@ -48,6 +49,7 @@ class ThinqAPI:
     def __init__(self, **kwargs):
         self.sig_log_message = Callback(str)
         self.sig_dev_info_list = Callback(list)
+        self.sig_request_failed = Callback(int, str)
 
         self.subscribe_topics = list()
         self.device_discover_list = list()
@@ -543,75 +545,25 @@ class ThinqAPI:
             'dataValue': dataValue,
         }
         response = requests.post(url, json=data, headers=self.generate_default_header())
-        if response.status_code == 200:
-            pass
-        else:
-            pass
+        if response.status_code != 200:
+            content = response.content.decode(encoding='utf-8', errors='ignore')
+            self.sig_request_failed.emit(response.status_code, content)
 
     # ThinQ v1 REST API: control device
-    def sendCommandToDeviceV1(self, device_id: str):
+    def sendCommandToDeviceV1(self, device_id: str, key: str, value: Any):
+        # TODO: binary data format
         url = self.uri_thinq1 + f'/rti/rtiControl'
         data = {
             'cmd': 'Control',
             'cmpOpt': 'Set',
             'deviceId': device_id,
-            'workId': '',
-            'value': '',
+            'workId': str(uuid.uuid4()),
+            'value': {
+                key: value
+            },
             'data': ''
         }
-        response = requests.post(url, json={'lgedmRoot': data})
-        if response.status_code == 200:
-            pass
-        else:
-            pass
-
-
-"""
-ThinQ1
-
-public thinq1DeviceControl(device: Device, key: string, value: any) {
-const data = Helper.prepareControlData(device, key, value);
-
-return this.api.thinq1PostRequest('rti/rtiControl', data).catch(err => {
-  this.log.error('Unknown Error: ', err);
-});
-}
-
-public static prepareControlData(device: Device, key: string, value: string) {
-    const data: any = {
-      cmd: 'Control',
-      cmdOpt: 'Set',
-      deviceId: device.id,
-      workId: uuid.v4(),
-    };
-
-    if (device.deviceModel.data.ControlWifi?.type === 'BINARY(BYTE)') {
-      const sampleData = device.deviceModel.data.ControlWifi?.action?.SetControl?.data || '[]';
-      const decodedMonitor = device.snapshot.raw || {};
-      decodedMonitor[key] = value;
-      // build data array of byte
-      const byteArray = new Uint8Array(JSON.parse(Object.keys(decodedMonitor).reduce((prev, key) => {
-        return prev.replace(new RegExp('{{'+key+'}}', 'g'), parseInt(decodedMonitor[key] || '0'));
-      }, sampleData)));
-      Object.assign(data, {
-        value: 'ControlData',
-        data: Buffer.from(String.fromCharCode(...byteArray)).toString('base64'),
-        format: 'B64',
-      });
-    } else {
-      data.value = {
-        [key]: value,
-      };
-      data.data = '';
-    }
-
-    return data;
-  }
-}
-
-async thinq1PostRequest(endpoint: string, data: any) {
-return await this.postRequest(this._gateway?.thinq1_url + endpoint, {
-  lgedmRoot: data,
-}).then(data => data.lgedmRoot);
-}
-"""
+        response = requests.post(url, json={'lgedmRoot': data}, headers=self.generate_monitor_headers())
+        if response.status_code != 200:
+            content = response.content.decode(encoding='utf-8', errors='ignore')
+            self.sig_request_failed.emit(response.status_code, content)

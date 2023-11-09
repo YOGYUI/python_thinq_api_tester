@@ -2,7 +2,7 @@ from typing import List
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QShowEvent, QCloseEvent
 from PyQt5.QtWidgets import QMainWindow, QWidget, QPushButton, QLineEdit, QLabel, QRadioButton
-from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
+from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QMessageBox
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QGroupBox, QSizePolicy
 from ThinqAPI import ThinqAPI
 from Device import *
@@ -27,6 +27,7 @@ class ThinqGUI(QMainWindow):
         self.initControl()
         self.initLayout()
         self.setWindowTitle('ThinQ GUI')
+        self.resize(600, 600)
 
     def initLayout(self):
         central = QWidget(self)
@@ -67,7 +68,7 @@ class ThinqGUI(QMainWindow):
         hbox.setContentsMargins(0, 0, 0, 0)
         hbox.setSpacing(4)
         lbl = QLabel('Device ID')
-        lbl.setFixedWidth(60)
+        lbl.setFixedWidth(70)
         hbox.addWidget(lbl)
         hbox.addWidget(self._editDeviceId)
         vbox_gr.addWidget(subwgt)
@@ -77,7 +78,7 @@ class ThinqGUI(QMainWindow):
         hbox.setContentsMargins(0, 0, 0, 0)
         hbox.setSpacing(4)
         lbl = QLabel('Data Key')
-        lbl.setFixedWidth(60)
+        lbl.setFixedWidth(70)
         hbox.addWidget(lbl)
         hbox.addWidget(self._editDataKey)
         vbox_gr.addWidget(subwgt)
@@ -87,7 +88,7 @@ class ThinqGUI(QMainWindow):
         hbox.setContentsMargins(0, 0, 0, 0)
         hbox.setSpacing(4)
         lbl = QLabel('Data Value')
-        lbl.setFixedWidth(60)
+        lbl.setFixedWidth(70)
         hbox.addWidget(lbl)
         hbox.addWidget(self._editDataValue)
         self._radioValueInt.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.MinimumExpanding)
@@ -135,6 +136,7 @@ class ThinqGUI(QMainWindow):
     def setThinqApiInstance(self, thinq: ThinqAPI):
         self._thinqAPI = thinq
         self._thinqAPI.sig_dev_info_list.connect(self.onThinqApiDeviceListCallback)
+        self._thinqAPI.sig_request_failed.connect(self.onThinqApiRequestFailed)
 
     def startAPI(self):
         if self._thinqAPI is not None:
@@ -158,25 +160,24 @@ class ThinqGUI(QMainWindow):
         if self._thinqAPI is not None:
             self._thinqAPI.stop()
 
-    @staticmethod
-    def createDeviceInstance(dev_info: dict) -> DeviceCommon:
+    def createDeviceInstance(self, dev_info: dict) -> DeviceCommon:
         deviceType: DeviceType = DeviceType(int(dev_info.get('deviceType', '0')))
         if deviceType is DeviceType.AirConditioner:
-            device = AirConditioner(dev_info)
+            device = AirConditioner(dev_info, self._thinqAPI)
         elif deviceType is DeviceType.AirPurifier:
-            device = AirPurifier(dev_info)
+            device = AirPurifier(dev_info, self._thinqAPI)
         elif deviceType is DeviceType.Dehumidifier:
-            device = Dehumidifier(dev_info)
+            device = Dehumidifier(dev_info, self._thinqAPI)
         elif deviceType is DeviceType.Dryer:
-            device = Dryer(dev_info)
+            device = Dryer(dev_info, self._thinqAPI)
         elif deviceType is DeviceType.RobotCleaner:
-            device = RobotCleaner(dev_info)
+            device = RobotCleaner(dev_info, self._thinqAPI)
         elif deviceType is DeviceType.Styler:
-            device = Styler(dev_info)
+            device = Styler(dev_info, self._thinqAPI)
         elif deviceType is DeviceType.Washer:
-            device = Washer(dev_info)
+            device = Washer(dev_info, self._thinqAPI)
         else:
-            device = DeviceCommon(dev_info)
+            device = DeviceCommon(dev_info, self._thinqAPI)
         return device
 
     def onThinqApiDeviceListCallback(self, dev_info_list: list):
@@ -212,6 +213,9 @@ class ThinqGUI(QMainWindow):
             item.setText(f'{dev.platformType}')
             self._tableDeviceList.setItem(r, 4, item)
 
+    def onThinqApiRequestFailed(self, code: int, message: str):
+        QMessageBox.warning(self, "Error", f"Request Failed ({code})\n{message}", QMessageBox.Ok)
+
     def onTableDeviceListItemSelectionChanged(self):
         selected = self._tableDeviceList.selectedItems()
         if len(selected) > 0:
@@ -223,11 +227,14 @@ class ThinqGUI(QMainWindow):
     def onClickBtnSendCommand(self):
         try:
             dev_id = self._editDeviceId.text()
-            data_key = self._editDataKey.text()
-            if self._radioValueFloat.isChecked():
-                data_value = float(self._editDataValue.text())
-            else:
-                data_value = int(self._editDataValue.text())
-            self._thinqAPI.sendCommandToDevice(dev_id, data_key, data_value)
-        except Exception:
-            pass
+            find = list(filter(lambda x: x.deviceId == dev_id, self._dev_list))
+            if len(find) == 1:
+                device = find[0]
+                data_key = self._editDataKey.text()
+                if self._radioValueFloat.isChecked():
+                    data_value = float(self._editDataValue.text())
+                else:
+                    data_value = int(self._editDataValue.text())
+                device.sendCommand(data_key, data_value)
+        except Exception as e:
+            print(f'onClickBtnSendCommand::error::{e}')
